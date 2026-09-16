@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scanner un reçu</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 20px; }
+  h1 { font-size: 1.3rem; }
+  input[type="file"] { margin: 16px 0; }
+  label { display: block; margin-top: 12px; font-size: 0.85rem; color: #444; }
+  input[type="text"], input[type="number"], input[type="date"], select {
+    width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;
+  }
+  button { margin-top: 20px; padding: 10px 16px; border: none; border-radius: 6px; background: #1a7f5a; color: white; font-weight: 600; }
+  .confiance { font-size: 0.8rem; color: #888; margin-top: 4px; }
+  #brouillon { display: none; }
+</style>
+</head>
+<body>
+  <h1>Scanner un reçu</h1>
+  <input type="file" id="fichier" accept="image/*" capture="environment">
+  <p id="statut"></p>
+
+  <form id="brouillon">
+    <label>Fournisseur <input type="text" id="fournisseur"></label>
+    <label>Date <input type="date" id="date_depense"></label>
+    <label>Montant TTC <input type="number" step="0.01" id="montant_ttc"></label>
+    <label>Montant TVA <input type="number" step="0.01" id="montant_tva"></label>
+    <label>Taux TVA <input type="number" step="0.01" id="taux_tva"></label>
+    <label>Catégorie
+      <select id="categorie">
+        <option value="fournitures">Fournitures</option>
+        <option value="carburant">Carburant</option>
+        <option value="restauration">Restauration</option>
+        <option value="transport">Transport</option>
+        <option value="sous-traitance">Sous-traitance</option>
+        <option value="materiel">Matériel</option>
+        <option value="autre">Autre</option>
+      </select>
+    </label>
+    <p class="confiance" id="confiance"></p>
+    <button type="submit">Valider la dépense</button>
+  </form>
+
+  <script>
+    const API_BASE = "https://fenua-scan.hinovadigital.workers.dev"; 
+    const ENTREPRISE_ID = "demo-entreprise"; // à remplacer par la session réelle
+    const UTILISATEUR_ID = "demo-utilisateur";
+    let recuIdCourant = null;
+
+    document.getElementById("fichier").addEventListener("change", async (e) => {
+      const fichier = e.target.files[0];
+      if (!fichier) return;
+
+      document.getElementById("statut").textContent = "Analyse du reçu en cours...";
+
+      const form = new FormData();
+      form.append("fichier", fichier);
+      form.append("entreprise_id", ENTREPRISE_ID);
+      form.append("utilisateur_id", UTILISATEUR_ID);
+
+      const res = await fetch(`${API_BASE}/api/recus/scan`, { method: "POST", body: form });
+      const data = await res.json();
+
+      if (data.error) {
+        document.getElementById("statut").textContent = "Erreur : " + data.error;
+        return;
+      }
+
+      recuIdCourant = data.recu_id;
+      const b = data.brouillon;
+      document.getElementById("fournisseur").value = b.fournisseur;
+      document.getElementById("date_depense").value = b.date;
+      document.getElementById("montant_ttc").value = b.montant_ttc;
+      document.getElementById("montant_tva").value = b.montant_tva;
+      document.getElementById("taux_tva").value = b.taux_tva;
+      document.getElementById("categorie").value = b.categorie || "autre";
+      document.getElementById("confiance").textContent = b.confiance
+        ? `Confiance de l'IA : ${Math.round(b.confiance * 100)}% — vérifie les champs avant de valider.`
+        : "Vérifie les champs avant de valider.";
+
+      document.getElementById("statut").textContent = "Reçu analysé — corrige si besoin puis valide.";
+      document.getElementById("brouillon").style.display = "block";
+    });
+
+    document.getElementById("brouillon").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = {
+        entreprise_id: ENTREPRISE_ID,
+        utilisateur_id: UTILISATEUR_ID,
+        fournisseur: document.getElementById("fournisseur").value,
+        libelle: document.getElementById("fournisseur").value,
+        montant_ttc: parseFloat(document.getElementById("montant_ttc").value),
+        montant_tva: parseFloat(document.getElementById("montant_tva").value || 0),
+        taux_tva: parseFloat(document.getElementById("taux_tva").value || 0),
+        categorie: document.getElementById("categorie").value,
+        date_depense: document.getElementById("date_depense").value,
+      };
+
+      const res = await fetch(`${API_BASE}/api/recus/${recuIdCourant}/valider`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        document.getElementById("statut").textContent = "Erreur : " + data.error;
+        return;
+      }
+
+      document.getElementById("statut").textContent = "Dépense enregistrée ✓";
+      document.getElementById("brouillon").style.display = "none";
+    });
+  </script>
+</body>
+</html>

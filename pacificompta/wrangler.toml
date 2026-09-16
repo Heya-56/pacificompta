@@ -1,0 +1,18 @@
+name = "fenua-scan"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# Base de données D1 — remplace "database_id" après `wrangler d1 create fenua-compta-db`
+[[d1_databases]]
+binding = "DB"
+database_name = "fenua-compta-db"
+database_id = "c83ef81e-a666-4161-8df5-c5ed9fc17169"
+
+# Bucket R2 pour stocker les images de reçus — après `wrangler r2 bucket create fenua-recus`
+[[r2_buckets]]
+binding = "RECUS_BUCKET"
+bucket_name = "fenua-recus"
+
+# Workers AI — pas de clé à gérer, binding natif
+[ai]
+binding = "AI"
